@@ -7,6 +7,7 @@ import androidx.core.content.ContextCompat;
 
 import android.Manifest;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -25,8 +26,8 @@ import android.widget.TextView;
 
 public class MainActivity extends AppCompatActivity {
     // internet set
-    private final String requestUrl = "http://10.252.135.198/";
-    private final int port = 8000;
+    private String requestUrl = "http://10.252.135.198/";
+    private int port = 8000;
 
     private SensorManager mSensorManager;
     private Sensor sensor_linear_acc, sensor_gyroscope;
@@ -38,6 +39,8 @@ public class MainActivity extends AppCompatActivity {
     private Button buttonStart;
     private String ip_address;
     private EditText editTextIP;
+    private EditText editTextPort;
+    private EditText editTextDelay;
 
     //TODO 加个UI填IP
 
@@ -50,7 +53,14 @@ public class MainActivity extends AppCompatActivity {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.INTERNET}, 2);
         }
 
+        // lock down
         frozen = true;
+
+        SharedPreferences ip_info = getSharedPreferences("enableInfo", MODE_PRIVATE);
+        ip_address = ip_info.getString("ip_address","0.0.0.0");
+        port = ip_info.getInt("port",8000);
+        delay_times = ip_info.getInt("delay_multiple", 100);
+
         mWindowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         mDisplay = mWindowManager.getDefaultDisplay();
         // linear acceleration
@@ -58,19 +68,41 @@ public class MainActivity extends AppCompatActivity {
         sensor_linear_acc = mSensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
         sensor_gyroscope = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
         textViewMsg = (TextView) findViewById(R.id.textViewMsg);
+
         editTextIP = (EditText) findViewById(R.id.editTextNumberIP);
+        editTextIP.setText(ip_address.toString());
+        editTextPort = (EditText) findViewById(R.id.editTextNumberPort);
+        editTextPort.setText(String.valueOf(port));
+        editTextDelay = (EditText) findViewById(R.id.editTextDelay);
+        editTextDelay.setText(String.valueOf(delay_times));
+
         buttonStart = (Button) findViewById(R.id.buttonStart) ;
         buttonStart.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                frozen = false;
+                // save input
+                ip_address = editTextIP.getText().toString();
+                port = Integer.parseInt(editTextPort.getText().toString());
+                delay_times = Integer.parseInt(editTextDelay.getText().toString());
+                SharedPreferences.Editor editor = ip_info.edit();
+                editor.putInt("port",port);
+                editor.putString("ip_address", ip_address);
+                editor.putInt("delay_multiple", delay_times);
+                editor.apply();
+
+                frozen = !frozen;
+                if(frozen){
+                    buttonStart.setText("开始");
+                }else {
+                    buttonStart.setText("停止");
+                }
             }
         });
 
         SensorEventListener sensorEventListener = new UpdateSensorEventListener();
         mSensorManager.registerListener(sensorEventListener, sensor_gyroscope, SensorManager.SENSOR_DELAY_GAME);
         mSensorManager.registerListener(sensorEventListener, sensor_linear_acc, SensorManager.SENSOR_DELAY_GAME);
-        textViewMsg.setText("registered listener");
+        textViewMsg.setText("registered listener successfully!");
 
     }
     class UpdateSensorEventListener implements SensorEventListener{
@@ -116,6 +148,8 @@ public class MainActivity extends AppCompatActivity {
             msg += String.valueOf(mSensorX)+",";
             msg += String.valueOf(mSensorY)+",";
             msg += String.valueOf(mSensorZ)+"\n";
+
+            requestUrl = "http://"+ip_address+"/";
 
             Thread thread = new Thread(new Runnable() {
                 @Override
