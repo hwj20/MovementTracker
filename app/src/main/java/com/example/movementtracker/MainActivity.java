@@ -42,8 +42,6 @@ public class MainActivity extends AppCompatActivity {
     private EditText editTextPort;
     private EditText editTextDelay;
 
-    //TODO 加个UI填IP
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -55,7 +53,8 @@ public class MainActivity extends AppCompatActivity {
 
         // lock down
         frozen = true;
-
+        
+        // read input saved last time
         SharedPreferences ip_info = getSharedPreferences("enableInfo", MODE_PRIVATE);
         ip_address = ip_info.getString("ip_address","0.0.0.0");
         port = ip_info.getInt("port",8000);
@@ -66,6 +65,7 @@ public class MainActivity extends AppCompatActivity {
         // linear acceleration
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         sensor_linear_acc = mSensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
+        // gyroscope
         sensor_gyroscope = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
         textViewMsg = (TextView) findViewById(R.id.textViewMsg);
 
@@ -112,13 +112,14 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void onSensorChanged(SensorEvent event) {
-            // for frozen test
+            // for frozen
             if(frozen)
                 return;
+            // type specify
             if (event.sensor.getType() != Sensor.TYPE_LINEAR_ACCELERATION
                     && event.sensor.getType() != Sensor.TYPE_GYROSCOPE)
                 return;
-
+            // delay
             if (delay < delay_times){
                 delay++;
                 return;
