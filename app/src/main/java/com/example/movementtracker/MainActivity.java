@@ -1,8 +1,13 @@
 package com.example.movementtracker;
 
+import com.example.movementtracker.UploadUtils;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
+import android.Manifest;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -14,29 +19,46 @@ import android.view.Surface;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.TextView;
 
 
 public class MainActivity extends AppCompatActivity {
+    // internet set
+    private final String requestUrl = "http://10.252.135.198/";
+    private final int port = 8000;
+
     private SensorManager mSensorManager;
-    private Sensor sensor;
+    private Sensor sensor_linear_acc, sensor_gyroscope;
     private Display mDisplay;
     private WindowManager mWindowManager;
     private TextView textViewMsg;
     private boolean frozen;
+    private int delay_times = 100;
     private Button buttonStart;
+    private String ip_address;
+    private EditText editTextIP;
+
+    //TODO 加个UI填IP
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.INTERNET) !=  PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.INTERNET}, 2);
+        }
+
+        frozen = true;
         mWindowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         mDisplay = mWindowManager.getDefaultDisplay();
         // linear acceleration
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-        sensor = mSensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
+        sensor_linear_acc = mSensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
+        sensor_gyroscope = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
         textViewMsg = (TextView) findViewById(R.id.textViewMsg);
+        editTextIP = (EditText) findViewById(R.id.editTextNumberIP);
         buttonStart = (Button) findViewById(R.id.buttonStart) ;
         buttonStart.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -46,20 +68,35 @@ public class MainActivity extends AppCompatActivity {
         });
 
         SensorEventListener sensorEventListener = new UpdateSensorEventListener();
-        mSensorManager.registerListener(sensorEventListener, sensor, SensorManager.SENSOR_DELAY_GAME);
+        mSensorManager.registerListener(sensorEventListener, sensor_gyroscope, SensorManager.SENSOR_DELAY_GAME);
+        mSensorManager.registerListener(sensorEventListener, sensor_linear_acc, SensorManager.SENSOR_DELAY_GAME);
         textViewMsg.setText("registered listener");
 
     }
     class UpdateSensorEventListener implements SensorEventListener{
         private float mSensorX, mSensorY, mSensorZ;
+        private String msg = new String("");
+        private int delay = 0;
 
         @Override
         public void onSensorChanged(SensorEvent event) {
-            if (event.sensor.getType() != Sensor.TYPE_LINEAR_ACCELERATION)
-                return;
-            final long now = System.currentTimeMillis();
+            // for frozen test
             if(frozen)
                 return;
+            if (event.sensor.getType() != Sensor.TYPE_LINEAR_ACCELERATION
+                    && event.sensor.getType() != Sensor.TYPE_GYROSCOPE)
+                return;
+
+            if (delay < delay_times){
+                delay++;
+                return;
+            }
+            else{
+                delay = 0;
+            }
+
+
+            final long now = System.currentTimeMillis();
             /*
             screen upwards
             move left--- x+ right---x-
@@ -70,15 +107,26 @@ public class MainActivity extends AppCompatActivity {
             mSensorY = event.values[1];
             mSensorZ = event.values[2];
 
-            String msg = new String("");
-            msg += String.valueOf(now)+";";
-            msg += String.valueOf(mSensorX)+";";
-            msg += String.valueOf(mSensorY)+";";
-            msg += String.valueOf(mSensorZ)+";";
-            textViewMsg.setText(msg);
+            /*
+            in csv line format
+             */
+            msg = "";
+            msg += String.valueOf(event.sensor.getType())+",";
+            msg += String.valueOf(now)+",";
+            msg += String.valueOf(mSensorX)+",";
+            msg += String.valueOf(mSensorY)+",";
+            msg += String.valueOf(mSensorZ)+"\n";
 
+            Thread thread = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    UploadUtils.uploadMessage(msg,requestUrl,port);
+                }
+            });
+            thread.start();
+            textViewMsg.setText(msg);
             // lock down
-            frozen = true;
+//            frozen = true;
         }
 
         @Override
