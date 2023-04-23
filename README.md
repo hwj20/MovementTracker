@@ -9,4 +9,4 @@ https://github.com/hwj20/SensorDataCollectServer
 
 
 ## PS
-a simple tracker used for scientific data collection, without complex encryption
+a simple tracker used for scientific data collection, without any encryption and there is no explanatory note in the project.
